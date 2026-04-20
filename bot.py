@@ -4,16 +4,19 @@ import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.utils import get_random_id
 
+# === ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ===
 VK_TOKEN = os.environ.get("VK_TOKEN")
 GROUP_ID = os.environ.get("GROUP_ID")
+
 if not VK_TOKEN or not GROUP_ID:
     raise ValueError("Задайте VK_TOKEN и GROUP_ID в переменных окружения")
+
 GROUP_ID = int(GROUP_ID)
 
-CONSULTATION_URL = "https://vk.cc/cWSPkT"
-PARTNER_URL = "https://vk.cc/cWSPv5"
+# === ССЫЛКИ ===
+CONSULTATION_URL = "https://vk.cc/cWSPkT"   # ссылка на бесплатную консультацию
 
-# === СПРАВКА (FAQ) ===
+# === СПРАВКА (FAQ) — вопросы и ответы ===
 faq_items = [
     {"title": "Что такое банкротство физлиц?", "content": "Законная процедура списания долгов. После завершения все долги аннулируются."},
     {"title": "Какие долги списываются?", "content": "Кредиты, займы, ЖКХ, налоги, штрафы. Кроме алиментов и вреда здоровью."},
@@ -26,7 +29,7 @@ faq_items = [
 # === ВОПРОСЫ КВИЗА ===
 questions = [
     {
-        "text": "📊 Вопрос 1 из 4\n\nКакова общая сумма ваших долгов?",
+        "text": "📊 Вопрос 1 из 4\n\nКакова общая сумма ваших долгов? (кредиты, займы, ЖКХ, налоги)",
         "buttons": [
             {"label": "До 300 000 ₽", "value": "less_300k"},
             {"label": "300 000 – 600 000 ₽", "value": "300_600k"},
@@ -35,7 +38,7 @@ questions = [
         ]
     },
     {
-        "text": "💰 Вопрос 2 из 4\n\nКакой у вас доход в месяц после обязательных платежей?",
+        "text": "💰 Вопрос 2 из 4\n\nКакой у вас доход в месяц после вычета обязательных платежей?",
         "buttons": [
             {"label": "Меньше 15 000 ₽", "value": "low"},
             {"label": "15 000 – 30 000 ₽", "value": "medium"},
@@ -44,7 +47,7 @@ questions = [
         ]
     },
     {
-        "text": "🏠 Вопрос 3 из 4\n\nЕсть ли у вас имущество? (квартира, дом, машина)",
+        "text": "🏠 Вопрос 3 из 4\n\nЕсть ли у вас в собственности имущество? (квартира, дом, машина, техника)",
         "buttons": [
             {"label": "Да, есть", "value": "yes"},
             {"label": "Нет, ничего", "value": "no"}
@@ -55,33 +58,33 @@ questions = [
         "buttons": [
             {"label": "Да, списывают", "value": "yes"},
             {"label": "Нет, но коллекторы звонят", "value": "collectors"},
-            {"label": "Нет, сложно платить", "value": "hard"}
+            {"label": "Нет, просто сложно платить", "value": "hard"}
         ]
     }
 ]
 
 FINAL_MESSAGE = (
-    "✅ По результатам опроса вы **подходите** для банкротства.\n\n"
+    "✅ По результатам опроса вы **подходите** для процедуры банкротства.\n\n"
     "🎯 **Юридическая компания «Банкрот»** поможет:\n"
-    "• Списать долги от 300 000 ₽ законно\n"
-    "• Остановить коллекторов и приставов\n"
-    "• Сохранить единственное жильё\n\n"
+    "• Списать все долги от 300 000 ₽ законно\n"
+    "• Остановить звонки коллекторов и приставов\n"
+    "• Сохранить единственное жильё и имущество\n\n"
     f"📝 **Бесплатная консультация юриста:**\n{CONSULTATION_URL}\n\n"
-    "Заполните анкету — свяжутся через 15 минут."
+    "Заполните короткую анкету — с вами свяжутся через 15 минут."
 )
 
-# === СОСТОЯНИЯ ===
+# === СОСТОЯНИЯ ПОЛЬЗОВАТЕЛЕЙ ===
 class States:
     MAIN_MENU = "main_menu"
     QUIZ = "quiz"
     FAQ = "faq"
 
-user_state = {}
-user_quiz_data = {}
+user_state = {}       # user_id -> текущее состояние
+user_quiz_data = {}   # user_id -> {"current_q": int, "answers": dict}
 
 # === ФУНКЦИИ ОТПРАВКИ ===
-
 def send_main_menu(vk, peer_id, user_id):
+    """Главное меню с тремя кнопками."""
     user_state[user_id] = States.MAIN_MENU
     keyboard = {
         "one_time": False,
@@ -99,17 +102,17 @@ def send_main_menu(vk, peer_id, user_id):
             [
                 {
                     "action": {"type": "open_link", "label": "📞 Бесплатная консультация", "link": CONSULTATION_URL}
-                    # для open_link цвет не указывается
+                    # у open_link цвет не указывается
                 }
             ]
         ]
     }
     message = (
         "🏠 **Главное меню**\n\n"
-        "Я помогу вам с долгами. Выберите действие:\n"
-        "• **Пройти опрос** – подходит ли вам банкротство (4 вопроса)\n"
+        "Я помогу вам разобраться с долгами. Выберите действие:\n"
+        "• **Пройти опрос** – узнаете, подходит ли вам банкротство (4 вопроса)\n"
         "• **Справка** – ответы на частые вопросы\n"
-        "• **Консультация** – сразу к юристу"
+        "• **Консультация** – сразу перейти к юристу"
     )
     vk.messages.send(
         peer_id=peer_id,
@@ -119,9 +122,11 @@ def send_main_menu(vk, peer_id, user_id):
     )
 
 def send_quiz_question(vk, peer_id, user_id, q_index):
+    """Отправляет вопрос квиза с кнопками ответов, Назад и В меню."""
     q = questions[q_index]
     keyboard = {"one_time": False, "buttons": []}
-    # кнопки ответов
+    
+    # Кнопки вариантов ответов
     row = []
     for i, btn in enumerate(q["buttons"]):
         button = {
@@ -132,7 +137,8 @@ def send_quiz_question(vk, peer_id, user_id, q_index):
         if (i + 1) % 2 == 0 or i == len(q["buttons"]) - 1:
             keyboard["buttons"].append(row)
             row = []
-    # служебные кнопки
+    
+    # Служебные кнопки: Назад (если не первый вопрос) и В меню
     service_buttons = []
     if q_index > 0:
         service_buttons.append({"label": "◀ Назад", "value": "back"})
@@ -145,6 +151,7 @@ def send_quiz_question(vk, peer_id, user_id, q_index):
         })
     if service_row:
         keyboard["buttons"].append(service_row)
+    
     vk.messages.send(
         peer_id=peer_id,
         message=q["text"],
@@ -153,16 +160,20 @@ def send_quiz_question(vk, peer_id, user_id, q_index):
     )
 
 def start_quiz(vk, peer_id, user_id):
+    """Запускает квиз с первого вопроса."""
     user_state[user_id] = States.QUIZ
     user_quiz_data[user_id] = {"current_q": 0, "answers": {}}
     send_quiz_question(vk, peer_id, user_id, 0)
 
 def handle_quiz_answer(vk, peer_id, user_id, payload):
+    """Обрабатывает ответы в квизе, включая навигацию."""
     data = user_quiz_data.get(user_id)
     if not data:
         start_quiz(vk, peer_id, user_id)
         return
+    
     current = data["current_q"]
+    
     if payload == "back":
         if current > 0:
             data["current_q"] = current - 1
@@ -176,7 +187,7 @@ def handle_quiz_answer(vk, peer_id, user_id, payload):
         send_main_menu(vk, peer_id, user_id)
         return
     else:
-        # сохраняем ответ
+        # Сохраняем ответ
         for btn in questions[current]["buttons"]:
             if btn["value"] == payload:
                 data["answers"][f"q{current+1}"] = btn["label"]
@@ -186,12 +197,13 @@ def handle_quiz_answer(vk, peer_id, user_id, payload):
             data["current_q"] = next_q
             send_quiz_question(vk, peer_id, user_id, next_q)
         else:
-            # финиш
+            # Квиз завершён
             vk.messages.send(peer_id=peer_id, message=FINAL_MESSAGE, random_id=get_random_id())
             del user_quiz_data[user_id]
             send_main_menu(vk, peer_id, user_id)
 
 def send_faq(vk, peer_id, user_id):
+    """Отправляет список вопросов FAQ с кнопками."""
     user_state[user_id] = States.FAQ
     keyboard = {"one_time": False, "buttons": []}
     row = []
@@ -204,18 +216,20 @@ def send_faq(vk, peer_id, user_id):
         if (i + 1) % 2 == 0 or i == len(faq_items) - 1:
             keyboard["buttons"].append(row)
             row = []
+    # Кнопка "В главное меню"
     keyboard["buttons"].append([{
         "action": {"type": "text", "label": "🏠 В главное меню", "payload": json.dumps("menu")},
         "color": "primary"
     }])
     vk.messages.send(
         peer_id=peer_id,
-        message="❓ **Часто задаваемые вопросы**\n\nВыберите вопрос:",
+        message="❓ **Часто задаваемые вопросы**\n\nВыберите интересующий вас вопрос:",
         random_id=get_random_id(),
         keyboard=json.dumps(keyboard, ensure_ascii=False)
     )
 
 def handle_faq_answer(vk, peer_id, user_id, payload):
+    """Обрабатывает нажатия в разделе FAQ. Отправляет только ответ, без повторного списка."""
     if payload == "menu":
         send_main_menu(vk, peer_id, user_id)
         return
@@ -224,10 +238,9 @@ def handle_faq_answer(vk, peer_id, user_id, payload):
         if 0 <= idx < len(faq_items):
             item = faq_items[idx]
             answer = f"**{item['title']}**\n\n{item['content']}"
+            # Отправляем только текст ответа (без клавиатуры, чтобы не перекрывать список)
             vk.messages.send(peer_id=peer_id, message=answer, random_id=get_random_id())
-            send_faq(vk, peer_id, user_id)
-        else:
-            send_faq(vk, peer_id, user_id)
+    # Любой другой payload или нераспознанный — игнорируем (остаёмся в том же меню)
 
 # === ГЛАВНЫЙ ЦИКЛ ===
 def main():
@@ -250,10 +263,12 @@ def main():
                     payload = None
             text = msg.get("text", "").strip().lower()
 
-            if text in ["/start", "меню", "начать", "привет"]:
+            # Обработка команд текстом
+            if text in ["/start", "меню", "начать", "привет", "старт"]:
                 send_main_menu(vk, peer_id, user_id)
                 continue
 
+            # Определяем текущее состояние пользователя
             state = user_state.get(user_id, States.MAIN_MENU)
 
             if payload is not None:
@@ -271,6 +286,7 @@ def main():
                 else:
                     send_main_menu(vk, peer_id, user_id)
             else:
+                # Текстовое сообщение без payload
                 if state == States.MAIN_MENU:
                     send_main_menu(vk, peer_id, user_id)
                 elif state == States.QUIZ:
