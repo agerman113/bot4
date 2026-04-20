@@ -71,8 +71,10 @@ FINAL_MESSAGE = (
 user_states = {}
 user_answers = {}
 
-def send_keyboard(vk, peer_id, text, buttons, one_time=True):
+def send_keyboard(vk, peer_id, message_text, buttons, one_time=True):
     """Отправляет сообщение с клавиатурой (ручное формирование JSON)."""
+    if not message_text:
+        message_text = "Пожалуйста, выберите вариант ответа."
     keyboard = {
         "one_time": one_time,
         "buttons": []
@@ -88,23 +90,24 @@ def send_keyboard(vk, peer_id, text, buttons, one_time=True):
             "color": "primary"
         }
         row.append(button)
-        # Перенос строки после каждых 2 кнопок или если это последняя кнопка
         if (i + 1) % 2 == 0 or i == len(buttons) - 1:
             keyboard["buttons"].append(row)
             row = []
     keyboard_json = json.dumps(keyboard, ensure_ascii=False)
     vk.messages.send(
         peer_id=peer_id,
-        text=text,
+        message=message_text,
         random_id=get_random_id(),
         keyboard=keyboard_json
     )
 
-def send_message(vk, peer_id, text):
+def send_message(vk, peer_id, message_text):
     """Отправляет простое текстовое сообщение."""
+    if not message_text:
+        message_text = "..."
     vk.messages.send(
         peer_id=peer_id,
-        text=text,
+        message=message_text,
         random_id=get_random_id()
     )
 
@@ -183,7 +186,7 @@ def main():
                 }
                 vk.messages.send(
                     peer_id=peer_id,
-                    text="Привет! 👋\n\nПройдите короткий опрос и узнайте, можно ли списать ваши долги.\n\nНажмите «Начать опрос» — это займёт меньше минуты.",
+                    message="Привет! 👋\n\nПройдите короткий опрос и узнайте, можно ли списать ваши долги.\n\nНажмите «Начать опрос» — это займёт меньше минуты.",
                     random_id=get_random_id(),
                     keyboard=json.dumps(keyboard, ensure_ascii=False)
                 )
