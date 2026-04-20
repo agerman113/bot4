@@ -2,7 +2,6 @@ import os
 import json
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 
 # === ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ===
@@ -15,7 +14,7 @@ if not VK_TOKEN or not GROUP_ID:
 GROUP_ID = int(GROUP_ID)
 
 # === ЦЕЛЕВАЯ ССЫЛКА ===
-LEAD_URL = "https://vk.cc/cWSPkT"   # замените при необходимости
+LEAD_URL = "https://vk.cc/cWSPkT"
 
 # === ВОПРОСЫ КВИЗА ===
 questions = [
@@ -73,19 +72,36 @@ user_states = {}
 user_answers = {}
 
 def send_keyboard(vk, peer_id, text, buttons, one_time=True):
-    keyboard = VkKeyboard(one_time=one_time)
+    """Отправляет сообщение с клавиатурой (ручное формирование JSON)."""
+    keyboard = {
+        "one_time": one_time,
+        "buttons": []
+    }
+    row = []
     for i, btn in enumerate(buttons):
-        if i % 2 == 0 and i != 0:
-            keyboard.add_line()
-        keyboard.add_button(btn["label"], color=VkKeyboardColor.PRIMARY, payload=btn["value"])
+        button = {
+            "action": {
+                "type": "text",
+                "label": btn["label"],
+                "payload": json.dumps(btn["value"])
+            },
+            "color": "primary"
+        }
+        row.append(button)
+        # Перенос строки после каждых 2 кнопок или если это последняя кнопка
+        if (i + 1) % 2 == 0 or i == len(buttons) - 1:
+            keyboard["buttons"].append(row)
+            row = []
+    keyboard_json = json.dumps(keyboard, ensure_ascii=False)
     vk.messages.send(
         peer_id=peer_id,
         text=text,
         random_id=get_random_id(),
-        keyboard=keyboard.get_keyboard()
+        keyboard=keyboard_json
     )
 
 def send_message(vk, peer_id, text):
+    """Отправляет простое текстовое сообщение."""
     vk.messages.send(
         peer_id=peer_id,
         text=text,
@@ -153,13 +169,23 @@ def main():
                 else:
                     send_message(vk, peer_id, "📱 Отвечайте, пожалуйста, нажимая на кнопки под сообщением.")
             else:
-                keyboard = VkKeyboard(one_time=False)
-                keyboard.add_button("Начать опрос", color=VkKeyboardColor.POSITIVE, payload="start")
+                # Приветственная клавиатура
+                keyboard = {
+                    "one_time": False,
+                    "buttons": [[{
+                        "action": {
+                            "type": "text",
+                            "label": "Начать опрос",
+                            "payload": json.dumps("start")
+                        },
+                        "color": "positive"
+                    }]]
+                }
                 vk.messages.send(
                     peer_id=peer_id,
                     text="Привет! 👋\n\nПройдите короткий опрос и узнайте, можно ли списать ваши долги.\n\nНажмите «Начать опрос» — это займёт меньше минуты.",
                     random_id=get_random_id(),
-                    keyboard=keyboard.get_keyboard()
+                    keyboard=json.dumps(keyboard, ensure_ascii=False)
                 )
 
 if __name__ == "__main__":
