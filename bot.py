@@ -14,11 +14,10 @@ if not VK_TOKEN or not GROUP_ID:
 
 GROUP_ID = int(GROUP_ID)
 
-# === ЦЕЛЕВАЯ ССЫЛКА (первый оффер) ===
-LEAD_URL = "https://vk.cc/cWSPkT"   # можно заменить на https://edin.center/... если нужно
+# === ЦЕЛЕВАЯ ССЫЛКА ===
+LEAD_URL = "https://vk.cc/cWSPkT"   # замените при необходимости
 
 # === ВОПРОСЫ КВИЗА ===
-# Любой ответ подводит к тому, что банкротство подходит
 questions = [
     {
         "text": "📊 Привет! Я помогу проверить, подходит ли вам списание долгов через банкротство.\n\n"
@@ -70,9 +69,8 @@ FINAL_MESSAGE = (
     "Заполните короткую анкету — с вами свяжутся через 15 минут."
 )
 
-# === ХРАНИЛИЩЕ СОСТОЯНИЙ ===
-user_states = {}   # user_id -> индекс текущего вопроса
-user_answers = {}  # user_id -> dict ответов
+user_states = {}
+user_answers = {}
 
 def send_keyboard(vk, peer_id, text, buttons, one_time=True):
     keyboard = VkKeyboard(one_time=one_time)
@@ -80,19 +78,19 @@ def send_keyboard(vk, peer_id, text, buttons, one_time=True):
         if i % 2 == 0 and i != 0:
             keyboard.add_line()
         keyboard.add_button(btn["label"], color=VkKeyboardColor.PRIMARY, payload=btn["value"])
-    vk.method("messages.send", {
-        "peer_id": peer_id,
-        "text": text,
-        "random_id": get_random_id(),
-        "keyboard": keyboard.get_keyboard()
-    })
+    vk.messages.send(
+        peer_id=peer_id,
+        text=text,
+        random_id=get_random_id(),
+        keyboard=keyboard.get_keyboard()
+    )
 
 def send_message(vk, peer_id, text):
-    vk.method("messages.send", {
-        "peer_id": peer_id,
-        "text": text,
-        "random_id": get_random_id()
-    })
+    vk.messages.send(
+        peer_id=peer_id,
+        text=text,
+        random_id=get_random_id()
+    )
 
 def start_quiz(vk, peer_id, user_id):
     user_states[user_id] = 0
@@ -106,7 +104,6 @@ def process_answer(vk, peer_id, user_id, answer_text, payload):
         start_quiz(vk, peer_id, user_id)
         return
 
-    # сохраняем ответ
     user_answers[user_id][f"q{current+1}"] = answer_text
 
     next_q = current + 1
@@ -115,10 +112,8 @@ def process_answer(vk, peer_id, user_id, answer_text, payload):
         q = questions[next_q]
         send_keyboard(vk, peer_id, q["text"], q["buttons"])
     else:
-        # квиз закончен
         del user_states[user_id]
         send_message(vk, peer_id, FINAL_MESSAGE)
-        # для отладки на хостинге можно вывести ответы в лог
         print(f"✅ Опрос завершён: {user_id} -> {user_answers[user_id]}")
         del user_answers[user_id]
 
@@ -134,7 +129,6 @@ def main():
             user_id = event.obj.message["from_id"]
             msg = event.obj.message
 
-            # обрабатываем нажатие кнопки (payload)
             payload = msg.get("payload")
             if payload:
                 try:
@@ -142,16 +136,13 @@ def main():
                 except:
                     payload = None
 
-            # команда /start или приветственное слово
             text = msg.get("text", "").strip().lower()
             if text in ["/start", "начать", "старт", "привет"]:
                 start_quiz(vk, peer_id, user_id)
                 continue
 
-            # если пользователь в процессе квиза
             if user_id in user_states:
                 if payload is not None:
-                    # ищем текст кнопки по payload
                     cur_q = user_states[user_id]
                     for btn in questions[cur_q]["buttons"]:
                         if btn["value"] == payload:
@@ -162,15 +153,14 @@ def main():
                 else:
                     send_message(vk, peer_id, "📱 Отвечайте, пожалуйста, нажимая на кнопки под сообщением.")
             else:
-                # не в квизе — предлагаем начать
                 keyboard = VkKeyboard(one_time=False)
                 keyboard.add_button("Начать опрос", color=VkKeyboardColor.POSITIVE, payload="start")
-                vk.method("messages.send", {
-                    "peer_id": peer_id,
-                    "text": "Привет! 👋\n\nПройдите короткий опрос и узнайте, можно ли списать ваши долги.\n\nНажмите «Начать опрос» — это займёт меньше минуты.",
-                    "random_id": get_random_id(),
-                    "keyboard": keyboard.get_keyboard()
-                })
+                vk.messages.send(
+                    peer_id=peer_id,
+                    text="Привет! 👋\n\nПройдите короткий опрос и узнайте, можно ли списать ваши долги.\n\nНажмите «Начать опрос» — это займёт меньше минуты.",
+                    random_id=get_random_id(),
+                    keyboard=keyboard.get_keyboard()
+                )
 
 if __name__ == "__main__":
     main()
